@@ -1,0 +1,12 @@
+_____Instalar_____
+sudo apt update
+sudo apt install nasm
+sudo apt install qemu-system-i386
+
+_____Varificar Instalacion_____
+nasm -v
+qemu-system-i386 --version
+
+_____Ejecutar____
+nasm -f bin game.asm -o game.bin
+qemu-system-x86_64 -drive format=raw,file=game.bin
