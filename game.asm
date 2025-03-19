@@ -119,6 +119,108 @@ linea_horizontal_8:
 
 
 ; ========================
+; BOTS
+; ========================
+
+ ; Configuración inicial de los bots
+%define VIDEO_MEMORY 0xA000
+%define SCREEN_WIDTH 320
+%define SCREEN_HEIGHT 200
+%define BOT_COLOR 0x0F
+%define BOT_SPEED1 20
+%define BOT_X 50
+%define BOT_X2 60
+%define BOT_Y 180
+
+section .bss
+    botsArr resw 2
+    bot_timer1 resb 1
+    bot_timer2 resb 1
+
+section .text
+
+    mov ax, VIDEO_MEMORY
+    mov es, ax
+
+    mov ax, 100
+    mov bx, SCREEN_WIDTH
+    mul bx
+    add ax, 125
+    mov word [botsArr], ax
+    mov ax, 100
+    mul bx
+    add ax, 130
+    mov word [botsArr + 2], ax
+
+    mov byte [bot_timer1], 20
+    mov byte [bot_timer2], 35
+
+game_loop:
+    dec byte [bot_timer1]
+    jnz skip_update1
+    mov byte [bot_timer1], 20
+    call update_bot1
+skip_update1:
+    dec byte [bot_timer2]
+    jnz skip_update2
+    mov byte [bot_timer2], 35
+    call update_bot2
+skip_update2:
+
+    mov cx, 0xFFFF
+    delay_loop:
+    loop delay_loop
+
+    jmp game_loop
+
+update_bot1:
+    mov si, botsArr
+    mov ax, [si]
+    cmp ax, 0
+    je end_bot1
+
+    mov di, ax
+    mov byte [es:di], 4
+
+    sub di, SCREEN_WIDTH
+    cmp di, (BOT_Y - 50) * SCREEN_WIDTH
+    jl remove_bot1
+
+    mov byte [es:di], BOT_COLOR
+    mov [si], di
+    jmp end_bot1
+
+remove_bot1:
+    mov word [si], 0
+
+end_bot1:
+    ret
+
+update_bot2:
+    mov si, botsArr + 2
+    mov ax, [si]
+    cmp ax, 0
+    je end_bot2
+
+    mov di, ax
+    mov byte [es:di], 4
+
+    sub di, SCREEN_WIDTH
+    cmp di, (BOT_Y - 50) * SCREEN_WIDTH
+    jl remove_bot2
+
+    mov byte [es:di], BOT_COLOR
+    mov [si], di
+    jmp end_bot2
+
+remove_bot2:
+    mov word [si], 0
+
+end_bot2:
+    ret
+
+
+; ========================
 ; Cuadro móvil
 ; ========================
 mov si, 100  ; Posición Y inicial
@@ -245,6 +347,4 @@ erase_columna:
 cli
 hlt
 
-times 510-($-$$) db 0
 dw 0AA55h  ; Boot signature
-

@@ -1,5 +1,5 @@
 org   0x7c00 ; indica la posición de memoria donde estará el código, al final establece 
-%define SECTOR_AMOUNT 0x4  ;
+%define SECTOR_AMOUNT 0x8  ;
 jmp short start
 
 
@@ -32,6 +32,7 @@ int 0x13   		      ; interrupcion para utilizar el disco con el bios
 jmp 0x8000
 
 ; PADDING AND SIGNATURE
-times 510-($-$$) db 0 ; rellena a 512 con cero
+times 510 - ($ - $$) db 0 ; rellena a 512 con cero
 db  0x55
-db  0xaa ;número mágico, es para indicar que es bootloader
+db  0xaa ; número mágico
+
