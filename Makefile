@@ -1,4 +1,3 @@
-﻿#Assembler and linker
 ASM = nasm
 LD = ld
 
@@ -10,10 +9,10 @@ LD_FLAGS = -Ttext 0x7C00 --oformat binary
 OUTPUT = bootloader.img
 
 
-SOURCES = boot.asm 
+SOURCES = boot.asm game.asm  
 
 
-OBJS = boot.o 
+OBJS = boot.o game.o  
 
 
 EMU = qemu-system-x86_64
@@ -27,7 +26,10 @@ all: $(OUTPUT)
 #Compile each .asm file to a .bin format (for bootable binary)
 bootloader.img: $(SOURCES)
 	$(ASM) $(ASM_FLAGS) -o boot.bin boot.asm
+	$(ASM) $(ASM_FLAGS) -o game.bin game.asm
 
+	#Combine all .bin files into the final bootable binary
+	cat boot.bin game.bin > $(OUTPUT)
 # Run the bootloader using QEMU for testing
 run:
 	$(EMU) -drive format=raw,file=$(OUTPUT),index=0,if=floppy
