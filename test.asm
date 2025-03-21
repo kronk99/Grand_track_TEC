@@ -184,36 +184,65 @@ update_bot1:
     cmp ax, 0
     je end_bot1
 
-    ; Borra el bot en la posición actual
+    ; Borra píxel anterior
     mov di, ax
     mov byte [es:di], 4
 
-    ; Verifica el estado del bot 1
+    ; Estado actual
     mov al, [bot_state1]
     cmp al, 0
-    jne move_right_bot1
+    je bot1_move_up
+    cmp al, 1
+    je bot1_move_right
+    cmp al, 2
+    je bot1_move_down
+    jmp end_bot1
 
-    ; Movimiento vertical hacia arriba
+bot1_move_up:
     sub di, SCREEN_WIDTH
-    cmp di, 55 * SCREEN_WIDTH + 125  ; Límite (125,55)
-    jl switch_to_right_bot1
-
+    cmp di, 55 * SCREEN_WIDTH + 125
+    jl bot1_to_right
     mov byte [es:di], BOT_COLOR
     mov [si], di
     jmp end_bot1
 
-switch_to_right_bot1:
-    mov byte [bot_state1], 1  ; Cambiar a movimiento horizontal
-    jmp move_right_bot1
+bot1_to_right:
+    mov byte [bot_state1], 1
+    mov [si], di
+    jmp end_bot1
 
-move_right_bot1:
-    inc di  ; Mueve a la derecha
-    cmp di, 55 * SCREEN_WIDTH + 195  ; Límite (195,55)
-    jg remove_bot1
-
+bot1_move_right:
+    inc di
+    ; Obtener coordenada X (di % SCREEN_WIDTH)
+    mov ax, di
+    xor dx, dx
+    mov bx, SCREEN_WIDTH
+    div bx        ; AX = Y, DX = X
+    cmp dx, 195   ; ¿Ya está en columna 195?
+    ja bot1_to_down
     mov byte [es:di], BOT_COLOR
     mov [si], di
     jmp end_bot1
+
+
+bot1_to_down:
+    mov byte [bot_state1], 2
+    mov [si], di
+    jmp end_bot1
+
+bot1_move_down:
+    add di, SCREEN_WIDTH
+    ; Obtener coordenada Y (di / SCREEN_WIDTH)
+    mov ax, di
+    xor dx, dx
+    mov bx, SCREEN_WIDTH
+    div bx
+    cmp ax, 125   ; ¿Ya está en fila 125?
+    ja remove_bot1
+    mov byte [es:di], BOT_COLOR
+    mov [si], di
+    jmp end_bot1
+
 
 remove_bot1:
     mov word [si], 0
