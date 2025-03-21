@@ -131,7 +131,9 @@ linea_meta:
 %define BOT_Y 180
 
 section .bss
-    botsArr resw 2
+    botsArr resw 2  ; Almacena la posición de los bots en memoria de video
+    bot_state1 resb 1  ; Estado del recorrido del Bot 1
+    bot_state2 resb 1  ; Estado del recorrido del Bot 2
     bot_timer1 resb 1
     bot_timer2 resb 1
 
@@ -140,16 +142,21 @@ section .text
     mov ax, VIDEO_MEMORY
     mov es, ax
 
+    ; Inicializar posición de los bots
     mov ax, 100
     mov bx, SCREEN_WIDTH
     mul bx
     add ax, 125
-    mov word [botsArr], ax
+    mov word [botsArr], ax      ; Bot 1 en (125,100)
+    mov word [bot_state1], 0    ; Estado inicial del bot 1
+
     mov ax, 100
     mul bx
     add ax, 130
-    mov word [botsArr + 2], ax
+    mov word [botsArr + 2], ax  ; Bot 2 en (130,100)
+    mov word [bot_state2], 0    ; Estado inicial del bot 2
 
+    ; Inicializar temporizadores de movimiento
     mov byte [bot_timer1], 20
     mov byte [bot_timer2], 35
 
@@ -177,12 +184,32 @@ update_bot1:
     cmp ax, 0
     je end_bot1
 
+    ; Borra el bot en la posición actual
     mov di, ax
     mov byte [es:di], 4
 
+    ; Verifica el estado del bot 1
+    mov al, [bot_state1]
+    cmp al, 0
+    jne move_right_bot1
+
+    ; Movimiento vertical hacia arriba
     sub di, SCREEN_WIDTH
-    cmp di, (BOT_Y - 50) * SCREEN_WIDTH
-    jl remove_bot1
+    cmp di, 55 * SCREEN_WIDTH + 125  ; Límite (125,55)
+    jl switch_to_right_bot1
+
+    mov byte [es:di], BOT_COLOR
+    mov [si], di
+    jmp end_bot1
+
+switch_to_right_bot1:
+    mov byte [bot_state1], 1  ; Cambiar a movimiento horizontal
+    jmp move_right_bot1
+
+move_right_bot1:
+    inc di  ; Mueve a la derecha
+    cmp di, 55 * SCREEN_WIDTH + 195  ; Límite (195,55)
+    jg remove_bot1
 
     mov byte [es:di], BOT_COLOR
     mov [si], di
@@ -194,18 +221,39 @@ remove_bot1:
 end_bot1:
     ret
 
+
 update_bot2:
     mov si, botsArr + 2
     mov ax, [si]
     cmp ax, 0
     je end_bot2
 
+    ; Borra el bot en la posición actual
     mov di, ax
     mov byte [es:di], 4
 
+    ; Verifica el estado del bot 2
+    mov al, [bot_state2]
+    cmp al, 0
+    jne move_right_bot2
+
+    ; Movimiento vertical hacia arriba
     sub di, SCREEN_WIDTH
-    cmp di, (BOT_Y - 50) * SCREEN_WIDTH
-    jl remove_bot2
+    cmp di, 60 * SCREEN_WIDTH + 130  ; Límite (130,60)
+    jl switch_to_right_bot2
+
+    mov byte [es:di], BOT_COLOR
+    mov [si], di
+    jmp end_bot2
+
+switch_to_right_bot2:
+    mov byte [bot_state2], 1  ; Cambiar a movimiento horizontal
+    jmp move_right_bot2
+
+move_right_bot2:
+    inc di  ; Mueve a la derecha
+    cmp di, 60 * SCREEN_WIDTH + 190  ; Límite (190,60)
+    jg remove_bot2
 
     mov byte [es:di], BOT_COLOR
     mov [si], di
