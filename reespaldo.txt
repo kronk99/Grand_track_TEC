@@ -1,4 +1,4 @@
-[BITS 16]
+ [BITS 16]
 [ORG 0x7C00]
 
 mov ax, 0013h
@@ -214,7 +214,7 @@ bot1_move_up: ;de (125,100) a (125,55) HACIA ARRIBA
     mov [si], di
     jmp end_bot1 ;vuelve a la maquina de estados
 
-bot1_to_right: 
+bot1_to_right:
     mov byte [bot_state1], 1; cambia el estado
     mov [si], di
     jmp end_bot1; vuelve a la maquina de esta
