@@ -1,5 +1,5 @@
 org   0x7c00 ; indica la posición de memoria donde estará el código, al final establece 
-%define SECTOR_AMOUNT 0x12  ;
+%define SECTOR_AMOUNT 0x35;
 jmp short start
 
 

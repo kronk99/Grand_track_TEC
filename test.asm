@@ -1,5 +1,6 @@
 [BITS 16]
 [ORG 0x7C00]
+%define SECTOR_AMOUNT 0x20;
 
 mov ax, 0013h
 int 10h  ; Modo de video 320x200 256 colores
@@ -202,8 +203,8 @@ update_bot1: ; PARA MOVER EL BOT 1
     je bot1_4
     cmp al, 5
     je bot1_5
-    ;cmp al, 6
-    ;je bot1_6
+    cmp al, 6
+    je bot1_6
     jmp end_bot1
 
 bot1_move_up: ;de (125,100) a (125,55) HACIA ARRIBA
@@ -214,7 +215,7 @@ bot1_move_up: ;de (125,100) a (125,55) HACIA ARRIBA
     mov [si], di
     jmp end_bot1 ;vuelve a la maquina de estados
 
-bot1_to_right: 
+bot1_to_right:
     mov byte [bot_state1], 1; cambia el estado
     mov [si], di
     jmp end_bot1; vuelve a la maquina de esta
@@ -301,29 +302,29 @@ bot1_5: ;5: de (235,165) a (125,165) ALA IZQUIERDA
     mov bx, SCREEN_WIDTH
     div bx        ; AX = Y, DX = X
     cmp dx, 125
-    jbe remove_bot1
-    ;jbe bot1_to_6
+    ;jbe remove_bot1
+    jbe bot1_to_6
     mov byte [es:di], BOT_COLOR
     mov [si], di
     jmp end_bot1
 
 bot1_to_6: ; Cambia el estado
-    ;mov byte [bot_state1], 6
-    ;mov [si], di
-    ;jmp end_bot1 ;vuelvo a la maquina
+    mov byte [bot_state1], 6
+    mov [si], di
+    jmp end_bot1 ;vuelvo a la maquina
 
 bot1_6: ;6: de (125,165) a (125,100) ARRIBA
-    ;sub di, SCREEN_WIDTH  ; restar una fila
+    sub di, SCREEN_WIDTH  ; restar una fila
     ; Obtener coordenada Y (di / SCREEN_WIDTH)
-    ;mov ax, di
-    ;xor dx, dx
-    ;mov bx, SCREEN_WIDTH
-    ;div bx
-    ;cmp dx, 100
-    ;jbe remove_bot1
-    ;mov byte [es:di], BOT_COLOR
-    ;mov [si], di
-    ;jmp end_bot1
+    mov ax, di
+    xor dx, dx
+    mov bx, SCREEN_WIDTH
+    div bx
+    cmp dx, 100
+    jbe remove_bot1
+    mov byte [es:di], BOT_COLOR
+    mov [si], di
+    jmp end_bot1
 
 remove_bot1:
     mov word [si], 0
@@ -380,5 +381,4 @@ end_bot1: ; Se llama en las funciones de movimiento para volver a la llamada de 
 ; end_bot2:
 ;     ret
 
-times 510-($-$$) db 0
 dw 0xAA55
