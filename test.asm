@@ -125,66 +125,64 @@ linea_meta:
 %define SCREEN_WIDTH 320
 %define SCREEN_HEIGHT 200
 %define BOT_COLOR 0x0F
-%define BOT_SPEED1 20 
-;;se quema la velocidad
+%define BOT_SPEED1 20
 %define BOT_X 50
 %define BOT_X2 60
 %define BOT_Y 180
-;;============================================SETUP BOTS=======================================================================
-section .bss ;definicion de maquinas de estados 
+
+section .bss
     botsArr resw 2  ; Almacena la posición de los bots en memoria de video
     bot_state1 resb 1  ; Estado del recorrido del Bot 1
-    bot_state2 resb 1  ; Estado del recorrido del Bot 2
+    ;bot_state2 resb 1  ; Estado del recorrido del Bot 2
     bot_timer1 resb 1
-    bot_timer2 resb 1
+    ;bot_timer2 resb 1
 
 section .text
 
     mov ax, VIDEO_MEMORY
     mov es, ax
 
-    ;================================ Inicializar posición de los bots======================================
-
+    ; Inicializar posición de los bots
     mov ax, 100
     mov bx, SCREEN_WIDTH
-    mul bx 
+    mul bx
     add ax, 125
     mov word [botsArr], ax      ; Bot 1 en (125,100)
     mov word [bot_state1], 0    ; Estado inicial del bot 1
 
-    mov ax, 100
-    mul bx
-    add ax, 130
-    mov word [botsArr + 2], ax  ; Bot 2 en (130,100)
-    mov word [bot_state2], 0    ; Estado inicial del bot 2
+    ;mov ax, 100
+    ;mul bx
+    ;add ax, 130
+    ;mov word [botsArr + 2], ax  ; Bot 2 en (130,100)
+    ;mov word [bot_state2], 0    ; Estado inicial del bot 2
 
     ; Inicializar temporizadores de movimiento
-    mov byte [bot_timer1], 20 ;velocidades de los bots, timer de cada bot
-    mov byte [bot_timer2], 35
+    mov byte [bot_timer1], 20
+    ;mov byte [bot_timer2], 35
 
-game_loop: ;;llama a los bots 
-    dec byte [bot_timer1] ;decrementa en 8 bits
-    jnz skip_update1 ;llama al update si no es 0 el valor en dir bot_timer
+game_loop:
+    dec byte [bot_timer1]
+    jnz skip_update1
     mov byte [bot_timer1], 50
     call update_bot1
 skip_update1:
-    dec byte [bot_timer2]
-    jnz skip_update2
-    mov byte [bot_timer2], 65
-    call update_bot2
+    ;dec byte [bot_timer2]
+    ;jnz skip_update2
+    ;mov byte [bot_timer2], 75
+    ;call update_bot2
 skip_update2:
 
     mov cx, 0xFFFF
-    delay_loop:
-    loop delay_loop
 
+delay_loop:
+    loop delay_loop
     jmp game_loop
 
-update_bot1:
-    mov si, botsArr ;carga la pos en pantallla
-    mov ax, [si] ;carga la pos en pantalla , la pos esta en la dir boot array
-    cmp ax, 0 ;verifica si es dif de 0 
-    je end_bot1 ;si esta en 0 lo mata
+update_bot1: ; PARA MOVER EL BOT 1
+    mov si, botsArr
+    mov ax, [si]
+    cmp ax, 0
+    je end_bot1
 
     ; Borra píxel anterior
     mov di, ax
@@ -198,42 +196,43 @@ update_bot1:
     je bot1_move_right
     cmp al, 2
     je bot1_move_down
+    cmp al, 3
+    je bot1_3
     jmp end_bot1
 
-bot1_move_up:
+bot1_move_up: ;de (125,100) a (125,55) 
     sub di, SCREEN_WIDTH
     cmp di, 55 * SCREEN_WIDTH + 125
-    jl bot1_to_right
-    ;esto es para pintarlo hasta el estado de moverlo a la derecha
+    jl bot1_to_right ;manda a que se cambie el estado
     mov byte [es:di], BOT_COLOR
     mov [si], di
-    jmp end_bot1
+    jmp end_bot1 ;vuelve a la maquina de estados
 
-bot1_to_right:
-    mov byte [bot_state1], 1
-    mov [si], di ; le actualiza el estado de la direccion
-    jmp end_bot1
+bot1_to_right: 
+    mov byte [bot_state1], 1; cambia el estado
+    mov [si], di
+    jmp end_bot1; vuelve a la maquina de esta
 
-bot1_move_right:
+bot1_move_right: ;2: de (125,55) a (195,55)
     inc di
     ; Obtener coordenada X (di % SCREEN_WIDTH)
     mov ax, di
     xor dx, dx
     mov bx, SCREEN_WIDTH
     div bx        ; AX = Y, DX = X
-    cmp dx, 195   ; ¿Ya está en columna 195? 195,125
+    cmp dx, 195   ; ¿Ya está en columna 195?
     ja bot1_to_down
     mov byte [es:di], BOT_COLOR
     mov [si], di
     jmp end_bot1
 
 
-bot1_to_down:
+bot1_to_down: ; Cambia el estado
     mov byte [bot_state1], 2
     mov [si], di
-    jmp end_bot1
+    jmp end_bot1 ;vuelvo a la maquina
 
-bot1_move_down:
+bot1_move_down: ;3: de (195,55) a (195,125)
     add di, SCREEN_WIDTH
     ; Obtener coordenada Y (di / SCREEN_WIDTH)
     mov ax, di
@@ -241,77 +240,84 @@ bot1_move_down:
     mov bx, SCREEN_WIDTH
     div bx
     cmp ax, 125   ; ¿Ya está en fila 125?
-    ja remove_bot1
+    ja bot1_to_3
     mov byte [es:di], BOT_COLOR
     mov [si], di
     jmp end_bot1
 
 
-remove_bot1:
+bot1_to_3: ; Cambia el estado
     mov byte [bot_state1], 3
-    mov word [si], 0
-end_bot1:
-    ret
+    mov [si], di
+    jmp end_bot1 ;vuelvo a la maquina
 
-
-update_bot2:
-    ;1 palabra = 4 
-    
-    mov si, botsArr + 2 ; cargo en memoria la posicion 0x0000algo , le suma 2 0x00002+algo
-    mov ax, [si]   ; aca se trae la posicion x,y de memoria, que es un numero para pintar
-    ;en memoria , recuerde posactual = fila*#columnas + col actual.
-
-    ;stand by , recuperar si el codigo muere
-
-    ;cmp ax, 0
-    ;je end_bot2
-
-    ; Borra el bot en la posición actual
-    mov di, ax
-    mov byte [es:di], 4 ;color transparente 
-    
-    ; Verifica el estado del bot 2
-    mov al, [bot_state2] ;trae de memoria lo que haya en bot state
-    cmp al, 0 ;compara si el estado es 0
-    je moveup
-    cmp al,1
-    je move_right_bot2
-    cmp al,3
-    je end_bot2
-moveup:
-    sub di, SCREEN_WIDTH
-    cmp di, 60 * SCREEN_WIDTH + 130  ; Límite (130,60)
-    jl switch_to_right_bot2
-    ;cuando el estado no sea 0 se mueve a la derecha
-    ;esto se cambia cuando hayan mas estados, debido a que siempre va a tener un estado
-    ;diferente de 0 al recorrer el mapa
-     ; si el estado es 0, se mueve a la derecha
-
-    ; Movimiento vertical hacia arriba
-    sub di, SCREEN_WIDTH
-    cmp di, 60 * SCREEN_WIDTH + 130  ; Límite (130,60)
-    jl switch_to_right_bot2 ;si es menor que 60 , va a cambiar estado a moverme derecha
-
+bot1_3: ;3: de (195,55) a (195,125) A LA DERECHA
+    inc di
+    ; Obtener coordenada X (di % SCREEN_WIDTH)
+    mov ax, di
+    xor dx, dx
+    mov bx, SCREEN_WIDTH
+    div bx        ; AX = Y, DX = X
+    cmp dx, 235   ; ¿Ya está en columna 2355?
+    ja remove_bot1
     mov byte [es:di], BOT_COLOR
     mov [si], di
-    jmp end_bot2
+    jmp end_bot1
 
-switch_to_right_bot2: ;movimiento hacia a la derecha
-    mov byte [bot_state2], 1  ; Cambiar a movimiento horizontal
-move_right_bot2:
-    inc di  ; di tiene la coordenada  x,y , recuerde es un numero completo
-    cmp di, 60 * SCREEN_WIDTH + 190  ; Límite (190,60) ;compara si el limite es 190 horizontal
-    jg remove_bot2 ;si se pasa, borra el bot
-
-    mov byte [es:di], BOT_COLOR ;lo pinta cuadro a cuadro
-    mov [si], di ;guarda la ultima direccion que quede
-    jmp end_bot2
-
-remove_bot2:
-    mov byte [bot_state2], 3 ;++++++++++ANADI ESTO EL ESTADO 3 ES PARA FINALIZAR Y QUE NO MUERA ++++++++
+remove_bot1:
     mov word [si], 0
-end_bot2:
+
+end_bot1: ; Se llama en las funciones de movimiento para volver a la llamada de la maquina de estados.
     ret
+
+
+
+
+
+
+; --- AHORITA NO ESTOY USANDO BOT 2 ---
+; update_bot2:
+;     mov si, botsArr + 2
+;     mov ax, [si]
+;     cmp ax, 0
+;     je end_bot2
+;
+;     ; Borra el bot en la posición actual
+;     mov di, ax
+;     mov byte [es:di], 4
+;
+;     ; Verifica el estado del bot 2
+;     mov al, [bot_state2]
+;     cmp al, 0
+;     jne move_right_bot2
+;
+;     ; Movimiento vertical hacia arriba
+;     sub di, SCREEN_WIDTH
+;     cmp di, 60 * SCREEN_WIDTH + 130  ; Límite (130,60)
+;     jl switch_to_right_bot2
+;
+;     mov byte [es:di], BOT_COLOR
+;     mov [si], di
+;     jmp end_bot2
+;
+; switch_to_right_bot2:
+;     mov byte [bot_state2], 1  ; Cambiar a movimiento horizontal
+;     jmp move_right_bot2
+;
+; move_right_bot2:
+;     inc di  ; Mueve a la derecha
+;     cmp di, 60 * SCREEN_WIDTH + 190  ; Límite (190,60)
+;     jg remove_bot2
+;
+;     mov byte [es:di], BOT_COLOR
+;     mov [si], di
+;     jmp end_bot2
+;
+; remove_bot2:
+;     mov word [si], 0
+;
+; end_bot2:
+;     ret
 
 times 510-($-$$) db 0
 dw 0xAA55
