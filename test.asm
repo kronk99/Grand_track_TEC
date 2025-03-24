@@ -332,9 +332,13 @@ bot1_6: ;6: de (125,165) a (125,100) ARRIBA
     xor dx, dx
     mov bx, SCREEN_WIDTH
     div bx
-    cmp dx, 100
-    jbe remove_bot1
+    cmp ax, 100 ;ya esta en y= 100? , aca ha de estar el error
+    jbe bot1_to_1
     mov byte [es:di], BOT_COLOR
+    mov [si], di
+    jmp end_bot1
+bot1_to_1: ;esto me cambia el estado
+    mov byte [bot_state1], 0
     mov [si], di
     jmp end_bot1
 
@@ -492,12 +496,15 @@ bot2_6: ;6: de (125,165) a (125,100) ARRIBA
     xor dx, dx
     mov bx, SCREEN_WIDTH
     div bx
-    cmp dx, 100
-    jbe remove_bot2
+    cmp ax, 100
+    jbe bot2_to_1
     mov byte [es:di], BOT_COLOR
     mov [si], di
     jmp end_bot2
-
+bot2_to_1: ;esto me cambia el estado
+    mov byte [bot_state2], 0
+    mov [si], di
+    jmp end_bot2
 remove_bot2:
     mov word [si], 0
 
