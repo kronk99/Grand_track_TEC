@@ -137,8 +137,8 @@ section .bss ;definicion de maquinas de estados
     bot_state2 resb 1  ; Estado del recorrido del Bot 2
     bot_timer1 resb 1
     bot_timer2 resb 1
-    player_1_posX  resb 1
-    player_1_posY  resb 1
+    player_1_posX  resw 1
+    player_1_posY  resw 1
 
 section .text
 
@@ -165,11 +165,9 @@ section .text
     mov byte [bot_timer1], 20 ;velocidades de los bots, timer de cada bot
     mov byte [bot_timer2], 35
     ;
-    mov si, 165  ; Posición Y inicial
-    mov di, 165  ; Posición X inicial
     
-    mov [player_1_posX], si
-    mov [player_1_posY], di
+    mov word [player_1_posX], 165
+    mov word [player_1_posY], 165 ;el error puede ser que debo hacer un mov byte
 
 
 game_loop: ;;llama a los bots 
@@ -177,26 +175,37 @@ game_loop: ;;llama a los bots
     jnz skip_update1 ;llama al update si no es 0 el valor en dir bot_timer
     mov byte [bot_timer1], 50
     call update_bot1
-    ;cargo las posiciones de los jugadores antes de checkear las interrupciones, colisiones
-    ;y demas cosas
-
-    mov si, [player_1_posX]  ; Posición Y inicial
-    mov di, [player_1_posY]  ; Posición X inicial
-
-    call colition_checker
-    call draw_square  ; Dibuja el cuadro en la posición actual
-
-
     
-
-    mov ah, 0x00       ; Esperar una tecla
-    int 16h           ; Leer la tecla
-
+    mov bx, [player_1_posY]  ; Posición Y inicial ;cambiar el uso de si y di
+    mov dx, [player_1_posX]  ; Posición X inicial
+    
+    ;call colition_checker
+    
+    call draw_square  ; Dibuja el cuadro en la posición actual
+    ;se usan los registros a para las interrupciones ojo a esto.NO USAR REGISTRO A
+    ;======================Push a la pila antes de las interrupciones=============================
+    push bx
+    push dx 
+    ;========================interrupciones=====================================
+    mov ah, 01h       ;CODIGO 01 EJECUCION CONTINUA SIN ESPERAR TECLA.
+    int 16h 
+               
+    
     call erase_square ; Borra el cuadro actual
-
-    cmp ah, 0x4d       ; Flecha arriba
+    ;============restauro valores de bx y dx para hacer movimientos=======================
+    pop dx
+    pop bx
+    cmp ah, 48h       ; Flecha arriba
     je move_up
 
+    cmp ah, 50h       ; Flecha abajo
+    je move_down
+
+    cmp ah, 4Bh       ; Flecha izquierda
+    je move_left
+
+    cmp ah, 4Dh       ; Flecha derecha
+    je move_right
 
     jmp game_loop     ; Si no es una flecha, sigue esperando
 skip_update1:
@@ -346,31 +355,31 @@ end_bot2:
     ret
 
 move_up:
-    cmp si, 0         ; Límite superior
+    cmp bx, 0         ; Límite superior
     jbe game_loop
-    sub si, 1
-    mov [player_1_posX],si
+    sub bx, 1
+    mov [player_1_posY],bx
     jmp game_loop
 
 move_down:
-    cmp si, 196       ; Límite inferior (200 - 4 del cuadro)
+    cmp bx, 196       ; Límite inferior (200 - 4 del cuadro)
     jae game_loop
-    add si, 1
-    mov [player_1_posX],si
+    add bx, 1
+    mov [player_1_posY],bx
     jmp game_loop
 
 move_left:
-    cmp di, 0         ; Límite izquierdo
+    cmp dx, 0         ; Límite izquierdo
     jbe game_loop
-    sub di, 1
-    mov [player_1_posX],di 
+    sub dx, 1
+    mov [player_1_posX],dx 
     jmp game_loop
 
 move_right:
-    cmp di, 316       ; Límite derecho (320 - 4 del cuadro)
+    cmp dx, 316       ; Límite derecho (320 - 4 del cuadro)
     jae game_loop
-    add di, 1
-    mov [player_1_posX],di  ; Posición Y inicial
+    add dx, 1
+    mov [player_1_posX],dx  ; Posición Y inicial
      
     jmp game_loop
 
@@ -378,14 +387,17 @@ move_right:
 ; Función para dibujar el cuadro
 ; ========================
 draw_square:
+    
+    mov si ,bx
+    mov di, dx 
     push si
     push di
     push cx
 
     mov al, 02h  ; Color verde
-    mov bx, si ;mueve a bx si
-    mov dx, di; mueve a dx di
-    mov di, bx ; mueve a di, si
+    mov bx, si ;mueve a bx y
+    mov dx, di; mueve a dx x
+    mov di, bx ; mueve a di, y
     imul di, 320  ; Calcular posición Y, multiplicacion con signo , obtengo pos en memoria
     add di, dx    ; Calcular posición X, a di le suma dx , le sumo
     ;en x para encontrar pos x en memoria de video
@@ -411,12 +423,17 @@ draw_columna:; pinta horizontalmente.
     pop cx
     pop di
     pop si
+    ;aca creo que debe de guardar de nuevo en memoria
     ret
 
 ; ========================
 ; Función para borrar el cuadro
 ; ========================
 erase_square:
+    ;mov di,[player_1_posX]
+    ;mov si, [player_1_posY] 
+    mov si ,bx
+    mov di, dx 
     push si
     push di
     push cx
@@ -486,6 +503,8 @@ colition_checker:;muevo los valores del jugador 1
         collition:
             mov si, 165  ; Posición Y inicial
             mov di, 165  ; Posición X inicial
+            mov [player_1_posX] , di
+            mov [player_1_posY] , si
         return: 
             ret
         
