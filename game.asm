@@ -146,16 +146,16 @@ finishkeypressed: ;aca se van a actualizar los bots.
     ;call erase_square ; Borra el cuadro actual
 handleKeys:
     cmp ah, 48h       ; Flecha arriba
-    call move_up
+    je move_up        ; Cambié jz por je
 
     cmp ah, 50h       ; Flecha abajo
-    call move_down
+    je move_down
 
     cmp ah, 4Bh       ; Flecha izquierda
-    call move_left
+    je move_left
 
     cmp ah, 4Dh       ; Flecha derecha
-    call move_right
+    je move_right
 
     ret    ; Si no es una flecha, sigue esperando
 delay: ;funcion de delay.
