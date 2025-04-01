@@ -22,7 +22,27 @@ start:
     MOV WORD [pos_y], 20   ; Posición Y = 20 (cerca del borde superior)
     MOV BYTE [color], 15   ; Color blanco (15 en paleta estándar)
     
+    ; Obtener tiempo inicial
+    MOV AH, 0x00           ; Función para leer tiempo del sistema
+    INT 0x1A               ; Llamar interrupción de BIOS para obtener tiempo (DX = ticks)
+    MOV [last_time], DX    ; Guardar tiempo actual
+    
 main_loop:
+    ; Aquí puedes realizar otras operaciones (movimientos, visualizaciones, etc.)
+    ; que se ejecutarán continuamente sin ser bloqueadas por el contador
+    
+    ; Comprobar si ha pasado suficiente tiempo para actualizar el contador
+    MOV AH, 0x00           ; Función para leer tiempo del sistema
+    INT 0x1A               ; Llamar interrupción de BIOS para obtener tiempo (DX = ticks)
+    
+    MOV BX, DX             ; Nuevo tiempo en BX
+    SUB BX, [last_time]    ; Calcular diferencia
+    CMP BX, 18             ; Comprobar si ha pasado aprox. 1 segundo (18.2 ticks)
+    JB continue_loop       ; Si no ha pasado suficiente tiempo, continuar sin actualizar contador
+    
+    ; Ha pasado 1 segundo, actualizar el contador
+    MOV [last_time], DX    ; Actualizar tiempo de última actualización
+    
     ; Limpiar solo la zona del número (20x10 píxeles)
     MOV CX, [pos_x]        ; Cargar coordenada X en CX
     SUB CX, 10             ; Restar 10 para comenzar 10 píxeles a la izquierda
@@ -79,33 +99,6 @@ clear_x_loop:              ; Bucle para recorrer columnas (eje X)
     MOV CX, 1              ; Escribir 1 carácter
     INT 0x10               ; Llamar interrupción
     
-    ; Esperar aproximadamente 1 segundo utilizando la interrupción de BIOS
-    MOV AH, 0x86           ; Función BIOS - WAIT (espera)
-    MOV CX, 0x000F         ; Parte alta del contador (microsegundos)
-    MOV DX, 0x4240         ; Parte baja del contador (1,000,000 microsegundos = 1 segundo)
-    INT 0x15               ; Llamar a interrupción de espera
-    
-    ; En caso de que el INT 15h/AH=86h no esté disponible
-    CMP AH, 0x86           ; Verificar si BIOS devolvió error
-    JNE use_delay_loop     ; Si hubo error, usar bucle de retraso alternativo
-    JMP after_delay        ; Si no hubo error, saltar a después del retraso
-    
-use_delay_loop:            ; Método alternativo de retraso
-    ; Bucle de retraso calibrado para aproximadamente 1 segundo
-    MOV CX, 0x001F         ; Ajustar según la velocidad del CPU (contador externo)
-outer_loop:                ; Etiqueta para bucle externo
-    PUSH CX                ; Guardar contador externo
-    MOV CX, 0xFFFF         ; Valor máximo para contador interno (65535)
-inner_loop:                ; Etiqueta para bucle interno
-    NOP                    ; No operation - consume un ciclo de CPU
-    NOP                    ; Múltiples NOPs para hacer el retraso más largo
-    NOP
-    NOP
-    LOOP inner_loop        ; Decrementa CX y salta si no es cero (bucle interno)
-    POP CX                 ; Recuperar contador externo
-    LOOP outer_loop        ; Bucle externo (31 iteraciones del bucle interno)
-    
-after_delay:               ; Continuar después del retraso
     ; Cambiar color para efecto visual
     INC BYTE [color]       ; Incrementar valor de color
     CMP BYTE [color], 15   ; Mantener en el rango de 1-15 (evitar negro)
@@ -125,13 +118,16 @@ color_ok:                  ; Etiqueta para continuar después de ajustar color
 check_end:                 ; Verificar si hemos llegado a 00
     ; Verificar si terminamos (00)
     CMP BYTE [decenas], 0  ; Comprobar si decenas = 0
-    JNE main_loop          ; Si decenas no es 0, continuar con el bucle
+    JNE continue_loop      ; Si decenas no es 0, continuar con el bucle
     
     CMP BYTE [unidades], 0 ; Comprobar si unidades = 0
-    JNE main_loop          ; Si unidades no es 0, continuar con el bucle
+    JNE continue_loop      ; Si unidades no es 0, continuar con el bucle
     
     ; Si llegamos aquí, hemos llegado a 00 (fin de la cuenta regresiva)
     JMP done               ; Saltar a la rutina final
+    
+continue_loop:
+    JMP main_loop          ; Volver al bucle principal
     
 done:                      ; Rutina final cuando la cuenta llega a 00
     ; Mostrar mensaje final
@@ -175,6 +171,7 @@ unidades  db 0             ; Dígito de unidades (inicia en 0)
 pos_x     dw 0             ; Posición X para dibujar (word = 16 bits)
 pos_y     dw 0             ; Posición Y para dibujar (word = 16 bits)
 color     db 15            ; Color actual (byte = 8 bits)
+last_time dw 0             ; Último tiempo de actualización del contador
 mensaje_fin db 'Cuenta regresiva finalizada!', 0  ; Mensaje final terminado en nulo (0)
 
 ; Rellenar hasta 510 bytes y agregar firma de bootloader
