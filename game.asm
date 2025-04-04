@@ -139,16 +139,33 @@ linea_meta:
 %define BOT_Y 180
 
 section .bss
-    botsArr resw 2  ; Almacena la posición de los bots en memoria de video
-    bot_state1 resb 1  ; Estado del recorrido del Bot 1
-    bot_state2 resb 1  ; Estado del recorrido del Bot 2
-    bot_timer1 resb 1
-    bot_timer2 resb 1
-    player_1_posX  resw 1
-    player_1_posY  resw 1
+    ; Variables de bots y jugador
+    botsArr         resw 2      ; Posiciones de los bots en memoria de video
+    bot_state1      resb 1      ; Estado del Bot 1
+    bot_state2      resb 1      ; Estado del Bot 2
+    bot_timer1      resb 1      ; Temporizador para Bot 1
+    bot_timer2      resb 1      ; Temporizador para Bot 2
+    player_1_posX   resw 1
+    player_1_posY   resw 1
+
+    ; Variables para mostrar la cuenta regresiva (display timer)
+    decenas         resb 1      ; Dígito de decenas (inicialmente 9)
+    unidades        resb 1      ; Dígito de unidades (inicialmente 0)
+    pos_x           resw 1      ; Coordenada X para dibujar el timer
+    pos_y           resw 1      ; Coordenada Y para dibujar el timer
+    color           resb 1      ; Color del timer (atributo de texto)
+    last_time       resw 1      ; Tick del BIOS para refrescar el display
+
+    ; Variables para el timer interno de 60 segundos (no bloqueante)
+    start_ticks     resw 1      ; Guarda el tick inicial
+    timer_expired   resb 1      ; Flag: 0 = no expirado, 1 = expirado
+
+section .data
+    mensaje_fin     db 'Cuenta regresiva finalizada!', 0
 
 section .text
-
+start:
+    ; Configurar segmento de video (modo gráfico o modo texto)
     mov ax, VIDEO_MEMORY
     mov es, ax
 
@@ -157,109 +174,158 @@ section .text
     mov bx, SCREEN_WIDTH
     mul bx
     add ax, 125
-    mov word [botsArr], ax      ; Bot 1 en (125,100)
-    mov word [bot_state1], 0    ; Estado inicial del bot 1
+    mov word [botsArr], ax       ; Bot 1 en (125,100)
+    mov byte [bot_state1], 0     ; Estado inicial del Bot 1
 
     mov ax, 100
     mul bx
     add ax, 130
-    mov word [botsArr + 2], ax  ; Bot 2 en (130,100)
-    mov word [bot_state2], 0    ; Estado inicial del bot 2
+    mov word [botsArr+2], ax     ; Bot 2 en (130,100)
+    mov byte [bot_state2], 0     ; Estado inicial del Bot 2
 
     ; Inicializar temporizadores de movimiento
     mov byte [bot_timer1], 20
     mov byte [bot_timer2], 35
 
+    ; Inicializar posición del jugador
     mov word [player_1_posX], 165
-    mov word [player_1_posY], 165 ;el error puede ser que debo hacer un mov byte
+    mov word [player_1_posY], 165
 
-    ; Inicializar contador en 90 (cuenta regresiva)
-    MOV BYTE [decenas], 9  ; Inicializar dígito de decenas en 9
-    MOV BYTE [unidades], 0 ; Inicializar dígito de unidades en 0
-    
-    ; Definir posición para dibujar el número (esquina superior izquierda)
-    MOV WORD [pos_x], 20   ; Posición X = 20 (cerca del borde izquierdo)
-    MOV WORD [pos_y], 20   ; Posición Y = 20 (cerca del borde superior)
-    MOV BYTE [color], 15   ; Color blanco (15 en paleta estándar)
-    ;============================CLOCK===============================================
-    decenas   db 9             ; Dígito de decenas (inicia en 9)
-    unidades  db 0             ; Dígito de unidades (inicia en 0)
-    pos_x     dw 0             ; Posición X para dibujar (word = 16 bits)
-    pos_y     dw 0             ; Posición Y para dibujar (word = 16 bits)
-    color     db 15            ; Color actual (byte = 8 bits)
-mensaje_fin db 'Cuenta regresiva finalizada!', 0  ; Mensaje final terminado en nulo (0)
+    ; Inicializar el display timer (90 segundos, se muestra como 90)
+    mov byte [decenas], 9       ; Dígito de decenas
+    mov byte [unidades], 0      ; Dígito de unidades
+    mov word [pos_x], 20        ; Coordenada X (zona donde se dibuja el timer)
+    mov word [pos_y], 20        ; Coordenada Y
+    mov byte [color], 15        ; Color inicial (blanco)
+
+    ; Obtener el tick actual para el refresco del display timer
+    mov ah, 0x00              ; Función INT 1Ah: leer ticks
+    int 0x1A
+    mov [last_time], dx
+
+    ; Inicializar el timer interno de 60 segundos
+    mov ah, 0x00
+    int 0x1A
+    mov [start_ticks], dx     ; Guarda el tick inicial para 60 s
+    mov byte [timer_expired], 0
+
 game_loop:
-    ;;llama a los bots 
-    dec byte [bot_timer1] ;decrementa en 8 bits
-    jnz skip_update1 ;llama al update si no es 0 el valor en dir bot_timer
+    ;------------------------- Actualización de Bots -------------------------
+    dec byte [bot_timer1]     ; Disminuye temporizador del Bot 1
+    jnz skip_bot_update       ; Si no llega a 0, no se actualiza
     mov byte [bot_timer1], 50
-    call update_bot1
-MOV CX, [pos_x]        ; Cargar coordenada X en CX
-    SUB CX, 10             ; Restar 10 para comenzar 10 píxeles a la izquierda
-    MOV DX, [pos_y]        ; Cargar coordenada Y en DX
-    SUB DX, 5              ; Comenzar 5 píxeles arriba
-    MOV SI, 10             ; SI = altura del área a limpiar (10 píxeles)
+    call update_bot1          ; Actualiza la posición y dibujo del Bot 1
+skip_bot_update:
+    ; (Puedes actualizar Bot 2 de forma similar)
 
-clear_y_loop:              ; Bucle para recorrer filas (eje Y)
-    MOV DI, 20             ; DI = ancho del área a limpiar (20 píxeles)
-    PUSH CX                ; Guardar posición X inicial en la pila
-    
-clear_x_loop:              ; Bucle para recorrer columnas (eje X)
-    MOV AH, 0x0C           ; Función para escribir un píxel
-    MOV AL, 0              ; Color negro (0)
-    INT 0x10               ; Llamar interrupción para dibujar el píxel
-    INC CX                 ; Avanzar a la siguiente posición X
-    DEC DI                 ; Decrementar contador de ancho
-    JNZ clear_x_loop       ; Si no hemos terminado la fila, repetir
-    
-    POP CX                 ; Recuperar posición X inicial
-    INC DX                 ; Avanzar a la siguiente fila (Y+1)
-    DEC SI                 ; Decrementar contador de altura
-    JNZ clear_y_loop       ; Si no hemos terminado todas las filas, repetir
-    
-    ; Posicionar cursor para escribir el tiempo (contador regresivo)
-    MOV AH, 0x02           ; Función para posicionar cursor
-    MOV BH, 0              ; Página 0
-    MOV DH, 2              ; Fila 2 (cerca del borde superior)
-    MOV DL, 2              ; Columna 2 (cerca del borde izquierdo)
-    INT 0x10               ; Llamar interrupción
-    
-    ; Escribir dígito de decenas
-    MOV AH, 0x09           ; Función para escribir carácter con atributo
-    MOV AL, [decenas]      ; Obtener valor numérico de decenas
-    ADD AL, '0'            ; Convertir a ASCII (sumar 48/'0')
-    MOV BH, 0              ; Página 0
-    MOV BL, [color]        ; Color del carácter
-    MOV CX, 1              ; Escribir 1 carácter
-    INT 0x10               ; Llamar interrupción
-    
-    ; Posicionar cursor para el dígito de unidades
-    MOV AH, 0x02           ; Función para posicionar cursor
-    MOV BH, 0              ; Página 0
-    MOV DH, 2              ; Misma fila (2)
-    MOV DL, 3              ; Columna 3 (junto a las decenas)
-    INT 0x10               ; Llamar interrupción
-    
-    ; Escribir dígito de unidades
-    MOV AH, 0x09           ; Función para escribir carácter con atributo
-    MOV AL, [unidades]     ; Obtener valor numérico de unidades
-    ADD AL, '0'            ; Convertir a ASCII (sumar 48/'0')
-    MOV BH, 0              ; Página 0
-    MOV BL, [color]        ; Color del carácter
-    MOV CX, 1              ; Escribir 1 carácter
-    INT 0x10               ; Llamar interrupción
-    
-    ; Esperar aproximadamente 1 segundo utilizando la interrupción de BIOS
-    MOV AH, 0x86           ; Función BIOS - WAIT (espera)
-    MOV CX, 0x000F         ; Parte alta del contador (microsegundos)
-    MOV DX, 0x4240         ; Parte baja del contador (1,000,000 microsegundos = 1 segundo)
-    INT 0x15               ; Llamar a interrupción de espera
-    
-    ; En caso de que el INT 15h/AH=86h no esté disponible
-    CMP AH, 0x86           ; Verificar si BIOS devolvió error
-    JNE use_delay_loop     ; Si hubo error, usar bucle de retraso alternativo
-    JMP after_delay        ; Si no hubo error, saltar a después del retraso
-    
+    ;-------------------- Actualización del display timer --------------------
+    mov ah, 0x00
+    int 0x1A
+    mov bx, dx
+    sub bx, [last_time]       ; Diferencia de ticks
+    cmp bx, 18                ; Aproximadamente 18 ticks = 1 segundo
+    jb skip_timer_update      ; Si no pasó 1 segundo, salta
+
+    mov [last_time], dx       ; Actualiza el último tick
+
+    ; Decrementar dígito de unidades y, si es necesario, el de decenas
+    dec byte [unidades]
+    cmp byte [unidades], 255  ; 255 indica que se ha pasado de 0 (subdesbordamiento)
+    jne update_display_digit
+    mov byte [unidades], 9
+    dec byte [decenas]
+update_display_digit:
+    ; Se verifica si la cuenta mostrada es 00 para efectos visuales (pero no se finaliza)
+    cmp byte [decenas], 0
+    jne display_digits
+    cmp byte [unidades], 0
+    jne display_digits
+
+display_digits:
+    ; Limpiar el área donde se dibuja el timer (zona de 20x10 píxeles)
+    mov cx, [pos_x]
+    sub cx, 10
+    mov dx, [pos_y]
+    sub dx, 5
+    mov si, 10               ; Altura = 10 píxeles
+clear_y_loop:
+    mov di, 20               ; Ancho = 20 píxeles
+    push cx
+clear_x_loop:
+    mov ah, 0x0C             ; Función para dibujar un píxel
+    mov al, 0                ; Color negro para limpiar
+    int 0x10
+    inc cx
+    dec di
+    jnz clear_x_loop
+    pop cx
+    inc dx
+    dec si
+    jnz clear_y_loop
+
+    ; Mostrar dígito de decenas (usando INT 0x10 AH=0x09 para texto)
+    mov ah, 0x02
+    mov bh, 0
+    mov dh, 2                ; Fila 2
+    mov dl, 2                ; Columna 2
+    int 0x10
+    mov ah, 0x09
+    mov al, [decenas]
+    add al, '0'
+    mov bh, 0
+    mov bl, [color]
+    mov cx, 1
+    int 0x10
+
+    ; Mostrar dígito de unidades
+    mov ah, 0x02
+    mov bh, 0
+    mov dh, 2                ; Fila 2
+    mov dl, 3                ; Columna 3
+    int 0x10
+    mov ah, 0x09
+    mov al, [unidades]
+    add al, '0'
+    mov bh, 0
+    mov bl, [color]
+    mov cx, 1
+    int 0x10
+
+    ; Efecto visual: actualizar color
+    inc byte [color]
+    cmp byte [color], 15
+    jb color_ok
+    mov byte [color], 1
+color_ok:
+
+skip_timer_update:
+    ;-------------------- Actualización del timer interno 60s --------------------
+    mov ah, 0x00
+    int 0x1A
+    mov ax, dx
+    sub ax, [start_ticks]      ; Diferencia con el tick inicial
+    cmp ax, 1092               ; 1092 ≈ 60 segundos (60*18.2)
+    jb timer_not_expired
+    mov byte [timer_expired], 1
+timer_not_expired:
+
+    cmp byte [timer_expired], 1
+    je finish_program          ; Si han pasado 60 segundos, finaliza
+
+    jmp game_loop
+
+finish_program:
+    ; Opcional: mostrar mensaje final y/o realizar limpieza
+    mov ah, 0x02
+    mov bh, 0
+    mov dh, 4
+    mov dl, 2
+    int 0x10
+    mov ah, 0x09
+    mov dx, mensaje_fin
+    ; Para efectos de este ejemplo, se detiene la ejecución
+    hlt
+
 use_delay_loop:            ; Método alternativo de retraso
     ; Bucle de retraso calibrado para aproximadamente 1 segundo
     MOV CX, 0x001F         ; Ajustar según la velocidad del CPU (contador externo)
@@ -281,16 +347,6 @@ after_delay:               ; Continuar después del retraso
     CMP BYTE [color], 15   ; Mantener en el rango de 1-15 (evitar negro)
     JB color_ok            ; Si es menor que 15, continuar
     MOV BYTE [color], 1    ; Volver a color 1 si superamos 15
-color_ok:                  ; Etiqueta para continuar después de ajustar color
-    
-    ; Decrementar contador (cuenta regresiva)
-    DEC BYTE [unidades]    ; Decrementar dígito de unidades
-    CMP BYTE [unidades], 0 ; Comparar si unidades < 0
-    JGE check_end          ; Si no es negativo, verificar si terminamos
-    
-    ; Ajustar unidades y decrementar decenas
-    MOV BYTE [unidades], 9 ; Unidades vuelve a 9
-    DEC BYTE [decenas]     ; Decrementar dígito de decenas
     
 check_end:                 ; Verificar si hemos llegado a 00
     ; Verificar si terminamos (00)
