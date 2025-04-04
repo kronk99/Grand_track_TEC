@@ -212,10 +212,12 @@ start:
 game_loop:
     ;------------------------- Actualización de Bots -------------------------
     dec byte [bot_timer1]     ; Disminuye temporizador del Bot 1
-    jnz skip_bot_update       ; Si no llega a 0, no se actualiza
+    jnz skip_update1       ; Si no llega a 0, no se actualiza
     mov byte [bot_timer1], 50
     call update_bot1          ; Actualiza la posición y dibujo del Bot 1
-skip_bot_update:
+    call clock_timer
+    jmp continuegameloop ;llamo al jugador
+clock_timer:
     ; (Puedes actualizar Bot 2 de forma similar)
 
     ;-------------------- Actualización del display timer --------------------
@@ -312,8 +314,9 @@ timer_not_expired:
     cmp byte [timer_expired], 1
     je finish_program          ; Si han pasado 60 segundos, finaliza
 
-    jmp game_loop
-
+    ;jmp game_loop
+    ;modificacion para que regrese
+    ret
 finish_program:
     ; Opcional: mostrar mensaje final y/o realizar limpieza
     mov ah, 0x02
