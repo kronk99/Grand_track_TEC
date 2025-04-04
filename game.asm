@@ -133,6 +133,8 @@ linea_meta:
 %define SCREEN_WIDTH 320
 %define SCREEN_HEIGHT 200
 %define BOT_COLOR 0x0F
+%define BOT2_COLOR 0x0D
+%define BOT3_COLOR 0x03
 %define BOT_SPEED1 20
 %define BOT_X 50
 %define BOT_X2 60
@@ -140,11 +142,13 @@ linea_meta:
 
 section .bss
     ; Variables de bots y jugador
-    botsArr         resw 2      ; Posiciones de los bots en memoria de video
+    botsArr         resw 3      ; Posiciones de los bots en memoria de video
     bot_state1      resb 1      ; Estado del Bot 1
     bot_state2      resb 1      ; Estado del Bot 2
+    bot_state3      resb 1
     bot_timer1      resb 1      ; Temporizador para Bot 1
     bot_timer2      resb 1      ; Temporizador para Bot 2
+    bot_timer3      resb 1
     player_1_posX   resw 1
     player_1_posY   resw 1
 
@@ -183,6 +187,14 @@ start:
     mov word [botsArr+2], ax     ; Bot 2 en (130,100)
     mov byte [bot_state2], 0     ; Estado inicial del Bot 2
 
+    mov ax, 100
+    mov bx, SCREEN_WIDTH
+    mul bx
+    add ax, 122               ; Posición inicial para Bot 3 (p. ej., 122,100)
+    mov word [botsArr+4], ax
+    mov byte [bot_state3], 0
+    mov byte [bot_timer3], 15 ; Más rápido que Bot 2 (que tiene 35)
+
     ; Inicializar temporizadores de movimiento
     mov byte [bot_timer1], 20
     mov byte [bot_timer2], 35
@@ -213,7 +225,7 @@ game_loop:
     ;------------------------- Actualización de Bots -------------------------
     dec byte [bot_timer1]     ; Disminuye temporizador del Bot 1
     jnz skip_update1       ; Si no llega a 0, no se actualiza
-    mov byte [bot_timer1], 50
+    mov byte [bot_timer1], 80
     call update_bot1          ; Actualiza la posición y dibujo del Bot 1
     call clock_timer
     jmp continuegameloop ;llamo al jugador
@@ -430,15 +442,22 @@ move_right:
 skip_update1:
     dec byte [bot_timer2]
     jnz skip_update2
-    mov byte [bot_timer2], 75
+    mov byte [bot_timer2], 55
     call update_bot2
-skip_update2:
 
+skip_update2:
+    dec byte [bot_timer3]
+    jnz skip_update3
+    mov byte [bot_timer3], 67
+    call update_bot3
+
+skip_update3:
     mov cx, 0xFFFF
 
 delay_loop:
     loop delay_loop
     jmp game_loop
+
 
 
 ; ===========================
@@ -486,26 +505,26 @@ bot1_to_right:
     mov [si], di
     jmp end_bot1; vuelve a la maquina de esta
 
-bot1_move_right: ;2: de (125,55) a (195,55)
+bot1_move_right:
     inc di
-    ; Obtener coordenada X (di % SCREEN_WIDTH)
     mov ax, di
     xor dx, dx
     mov bx, SCREEN_WIDTH
-    div bx        ; AX = Y, DX = X
-    cmp dx, 195   ; ¿Ya está en columna 195?
-    ja bot1_to_down
+    div bx
+    cmp dx, 195
+    jae bot1_to_down       
     mov byte [es:di], BOT_COLOR
     mov [si], di
     jmp end_bot1
 
 
-bot1_to_down: ; Cambia el estado
+
+bot1_to_down:
     mov byte [bot_state1], 2
     mov [si], di
-    jmp end_bot1 ;vuelvo a la maquina
+    jmp end_bot1
 
-bot1_move_down: ;3: de (195,55) a (195,125)
+bot1_move_down: ;3: de (193,55) a (193,125)
     add di, SCREEN_WIDTH
     ; Obtener coordenada Y (di / SCREEN_WIDTH)
     mov ax, di
@@ -518,11 +537,10 @@ bot1_move_down: ;3: de (195,55) a (195,125)
     mov [si], di
     jmp end_bot1
 
-
 bot1_to_3: ; Cambia el estado
     mov byte [bot_state1], 3
     mov [si], di
-    jmp end_bot1 ;vuelvo a la maquina
+    jmp end_bot1 ;vuelvo a la maquinaa
 
 bot1_3: ;3: de (195,55) a (195,125) A LA DERECHA
     inc di
@@ -641,7 +659,7 @@ bot2_move_up: ; 0 de (130,100) a (130, 60) HACIA ARRIBA
     sub di, SCREEN_WIDTH
     cmp di, 60 * SCREEN_WIDTH + 130
     jl bot2_to_right ;manda a que se cambie el estado
-    mov byte [es:di], BOT_COLOR
+    mov byte [es:di], BOT2_COLOR
     mov [si], di
     jmp end_bot2 ;vuelve a la maquina de estados
 
@@ -659,7 +677,7 @@ bot2_move_right: ;1: de e (130, 60) a (190, 60)
     div bx        ; AX = Y, DX = X
     cmp dx, 190   ; ¿Ya está en columna 190?
     ja bot2_to_down
-    mov byte [es:di], BOT_COLOR
+    mov byte [es:di], BOT2_COLOR
     mov [si], di
     jmp end_bot2
 
@@ -678,7 +696,7 @@ bot2_move_down: ;2: de (190, 60) a (190, 135)
     div bx
     cmp ax, 125   ; ¿Ya está en fila 125?
     ja bot2_to_3
-    mov byte [es:di], BOT_COLOR
+    mov byte [es:di], BOT2_COLOR
     mov [si], di
     jmp end_bot2
 
@@ -697,7 +715,7 @@ bot2_3: ;3: de (190, 135) a (225, 135)
     div bx        ; AX = Y, DX = X
     cmp dx, 235   ; ¿Ya está en columna 225?
     ja bot2_to_4
-    mov byte [es:di], BOT_COLOR
+    mov byte [es:di], BOT2_COLOR
     mov [si], di
     jmp end_bot2
 
@@ -715,7 +733,7 @@ bot2_4: ;4: de (225, 135) a (225, 170)A abajo
     div bx
     cmp ax, 170   ; 
     ja bot2_to_5
-    mov byte [es:di], BOT_COLOR
+    mov byte [es:di], BOT2_COLOR
     mov [si], di
     jmp end_bot2
 
@@ -734,7 +752,7 @@ bot2_5: ;5: de de (225, 170) a (130, 170) ALA IZQUIERDA
     cmp dx, 130
     ;jbe remove_bot2
     jbe bot2_to_6
-    mov byte [es:di], BOT_COLOR
+    mov byte [es:di], BOT2_COLOR
     mov [si], di
     jmp end_bot2
 
@@ -752,7 +770,7 @@ bot2_6: ;6: de (125,165) a (125,100) ARRIBA
     div bx
     cmp ax, 100
     jbe bot2_to_1
-    mov byte [es:di], BOT_COLOR
+    mov byte [es:di], BOT2_COLOR
     mov [si], di
     jmp end_bot2
 bot2_to_1: ;esto me cambia el estado
@@ -764,6 +782,169 @@ remove_bot2:
 
 end_bot2: ; Se llama en las funciones de movimiento para volver a la llamada de la maquina de estados.
     ret
+
+; ===========================
+;         BOT 3
+; ===========================
+
+update_bot3: ; PARA MOVER EL BOT 3
+    mov si, botsArr + 4
+    mov ax, [si]
+    cmp ax, 0
+    je end_bot3
+
+    ; Borra píxel anterior
+    mov di, ax
+    mov byte [es:di], 4
+
+    ; Estado actual
+    mov al, [bot_state3]
+    cmp al, 0
+    je bot3_move_up
+    cmp al, 1
+    je bot3_move_right
+    cmp al, 2
+    je bot3_move_down
+    cmp al, 3
+    je bot3_3
+    cmp al, 4
+    je bot3_4
+    cmp al, 5
+    je bot3_5
+    cmp al, 6
+    je bot3_6
+    jmp end_bot3
+
+bot3_move_up: ; 0 de (122,100) a (122, 63) HACIA ARRIBA
+    sub di, SCREEN_WIDTH
+    cmp di, 63 * SCREEN_WIDTH + 122
+    jl bot3_to_right ;manda a que se cambie el estado
+    mov byte [es:di], BOT3_COLOR
+    mov [si], di
+    jmp end_bot3 ;vuelve a la maquina de estados
+
+bot3_to_right:
+    mov byte [bot_state3], 1; cambia el estado
+    mov [si], di
+    jmp end_bot3; vuelve a la maquina de esta
+
+bot3_move_right: ;1: de e (122, 63) a (187, 63)
+    inc di
+    ; Obtener coordenada X (di % SCREEN_WIDTH)
+    mov ax, di
+    xor dx, dx
+    mov bx, SCREEN_WIDTH
+    div bx        ; AX = Y, DX = X
+    cmp dx, 187   ; ¿Ya está en columna 190?
+    ja bot3_to_down
+    mov byte [es:di], BOT3_COLOR
+    mov [si], di
+    jmp end_bot3
+
+
+bot3_to_down: ; Cambia el estado
+    mov byte [bot_state3], 2
+    mov [si], di
+    jmp end_bot3 ;vuelvo a la maquina
+
+bot3_move_down: ;2: de (187, 63) a (187, 133)
+    add di, SCREEN_WIDTH
+    ; Obtener coordenada Y (di / SCREEN_WIDTH)
+    mov ax, di
+    xor dx, dx
+    mov bx, SCREEN_WIDTH
+    div bx
+    cmp ax, 133   ; ¿Ya está en fila 125?
+    ja bot3_to_3
+    mov byte [es:di], BOT3_COLOR
+    mov [si], di
+    jmp end_bot3
+
+
+bot3_to_3: ; Cambia el estado
+    mov byte [bot_state3], 3
+    mov [si], di
+    jmp end_bot3 ;vuelvo a la maquina
+
+bot3_3: ;3: de (187, 133) a (230, 133)
+    inc di
+    ; Obtener coordenada X (di % SCREEN_WIDTH)
+    mov ax, di
+    xor dx, dx
+    mov bx, SCREEN_WIDTH
+    div bx        ; AX = Y, DX = X
+    cmp dx, 230   ; ¿Ya está en columna 225?
+    ja bot3_to_4
+    mov byte [es:di], BOT3_COLOR
+    mov [si], di
+    jmp end_bot3
+
+bot3_to_4: ; Cambia el estado
+    mov byte [bot_state3], 4
+    mov [si], di
+    jmp end_bot3 ;vuelvo a la maquina
+
+bot3_4: ;4: de (230, 133) a (230, 168)A abajo
+    add di, SCREEN_WIDTH
+    ; Obtener coordenada Y (di / SCREEN_WIDTH)
+    mov ax, di
+    xor dx, dx
+    mov bx, SCREEN_WIDTH
+    div bx
+    cmp ax, 168   ; 
+    ja bot3_to_5
+    mov byte [es:di], BOT3_COLOR
+    mov [si], di
+    jmp end_bot3
+
+bot3_to_5: ; Cambia el estado
+    mov byte [bot_state3], 5
+    mov [si], di
+    jmp end_bot3 ;vuelvo a la maquina
+
+bot3_5: ;5: de de (230, 168) a (122, 168) ALA IZQUIERDA
+    dec di
+    ; Obtener coordenada X (di % SCREEN_WIDTH)
+    mov ax, di
+    xor dx, dx
+    mov bx, SCREEN_WIDTH
+    div bx        ; AX = Y, DX = X
+    cmp dx, 122
+    ;jbe remove_bot3
+    jbe bot3_to_6
+    mov byte [es:di], BOT3_COLOR
+    mov [si], di
+    jmp end_bot3
+
+bot3_to_6: ; Cambia el estado
+    mov byte [bot_state3], 6
+    mov [si], di
+    jmp end_bot3 ;vuelvo a la maquina
+
+bot3_6: ;6: de (122,168) a (122,100) ARRIBA
+    sub di, SCREEN_WIDTH  ; restar una fila
+    ; Obtener coordenada Y (di / SCREEN_WIDTH)
+    mov ax, di
+    xor dx, dx
+    mov bx, SCREEN_WIDTH
+    div bx
+    cmp ax, 100
+    jbe bot3_to_1
+    mov byte [es:di], BOT3_COLOR
+    mov [si], di
+    jmp end_bot3
+bot3_to_1: ;esto me cambia el estado
+    mov byte [bot_state3], 0
+    mov [si], di
+    jmp end_bot3
+remove_bot3:
+    mov word [si], 0
+
+end_bot3: ; Se llama en las funciones de movimiento para volver a la llamada de la maquina de estados.
+    ret
+
+
+
 
 
 ; ========================

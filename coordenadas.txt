@@ -16,3 +16,18 @@ de (190, 135) a (225, 135)
 de (225, 135) a (225, 170)
 de (225, 170) a (130, 170)
 de (130, 170) a (130,100)
+
+
+
+para revisar que el bot paso por la linea, 
+es: 
+Bot 2: 130,98
+Bot1: 125,98
+
+mov ax, 100
+    mov bx, SCREEN_WIDTH
+    mul bx
+    add ax, 135               ; Posición inicial para Bot 3 (p. ej., 135,100)
+    mov word [botsArr+4], ax
+    mov byte [bot_state3], 0
+    mov byte [bot_timer3], 25 ; Más rápido que Bot 2 (que tiene 35)
